@@ -254,11 +254,13 @@ runs:
             echo "First commit detected, skipping version bump but creating release with current version (release-first-commit-bump=false)"
             echo "Using current version from package.json: $CURRENT_VERSION"
             echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-            # Skip to changelog generation - don't exit, let the release process continue
+            echo "Skipping all pattern matching and version bumping for first release"
+            # Exit early, let the changelog generation and release process continue
+            exit 0
           fi
         fi
         
-        # Check custom version patterns
+        # Check custom version patterns (only if not first release with bump disabled)
         echo "Checking custom version patterns..."
         VERSION_PATTERNS='${{ inputs.release-version-patterns }}'
         echo "Version patterns: $VERSION_PATTERNS"
@@ -289,40 +291,35 @@ runs:
           fi
         done
         
-        # Skip version determination if we're using current version for first commit
-        if [ "$IS_FIRST_RELEASE" = "true" ] && [ "${{ inputs.release-first-commit-bump }}" = "false" ]; then
-          echo "Skipping version bump logic, using current version for first release"
-        else
-          # If no custom pattern matched, use standard logic
-          if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
-            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-              BUMP_TYPE="${{ inputs.release-type }}"
-            else
-              BUMP_TYPE=$(determine_bump_type "$COMMIT_MSG" "$CURRENT_VERSION")
-            fi
+        # If no custom pattern matched, use standard logic
+        if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP_TYPE="${{ inputs.release-type }}"
+          else
+            BUMP_TYPE=$(determine_bump_type "$COMMIT_MSG" "$CURRENT_VERSION")
+          fi
+        fi
+        
+        # Only proceed with version bumping if no custom pattern was matched
+        if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
+          echo "Current version: $CURRENT_VERSION"
+          echo "Determined bump type: $BUMP_TYPE"
+          
+          if [ "$BUMP_TYPE" = "none" ]; then
+            echo "No version bump needed"
+            exit 0
           fi
           
-          # Only proceed with version bumping if no custom pattern was matched
-          if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
-            echo "Current version: $CURRENT_VERSION"
-            echo "Determined bump type: $BUMP_TYPE"
-            
-            if [ "$BUMP_TYPE" = "none" ]; then
-              echo "No version bump needed"
-              exit 0
-            fi
-            
-            case "$BUMP_TYPE" in
-              premajor|preminor|prepatch|prerelease)
-                npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version ;;
-              *)
-                npm version "$BUMP_TYPE" --no-git-tag-version ;;
-            esac
-            
-            NEW_VERSION=$(node -p "require('./package.json').version")
-            echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-            echo "New version: $NEW_VERSION"
-          fi
+          case "$BUMP_TYPE" in
+            premajor|preminor|prepatch|prerelease)
+              npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version ;;
+            *)
+              npm version "$BUMP_TYPE" --no-git-tag-version ;;
+          esac
+          
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
         fi
 
     - name: Generate changelog
@@ -493,10 +490,15 @@ runs:
         TAG_NAME="v${{ steps.version.outputs.version }}"
         echo "Creating git tag $TAG_NAME"
         
-        # Create tag (this should work since we've already handled existing tags in the previous step)
-        git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
-        git push origin "$TAG_NAME"
-        echo "Git tag $TAG_NAME created and pushed"
+        # Check if tag was already created by gh release create
+        if git ls-remote --tags origin | grep -q "refs/tags/$TAG_NAME$"; then
+          echo "Tag $TAG_NAME already exists (likely created by gh release create), skipping tag creation"
+        else
+          # Create tag if it doesn't exist
+          git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+          git push origin "$TAG_NAME"
+          echo "Git tag $TAG_NAME created and pushed"
+        fi
 
     - name: Publish to NPM
       if: ${{ inputs.enable-release == 'true' && inputs.release-publish-package == 'true' && steps.version.outputs.version }}
