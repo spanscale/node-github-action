@@ -55,6 +55,10 @@ inputs:
     description: "Release type for manual triggers (patch, minor, major, prepatch, preminor, premajor, prerelease)"
     required: false
     default: "patch"
+  release-skip-rules:
+    description: "Skip release if commit message contains these patterns (JSON array)"
+    required: false
+    default: '["[skip ci]", "[skip release]", "chore(release):"]'
   github-token:
     description: "GitHub token for authentication"
     required: true
@@ -169,6 +173,20 @@ runs:
         
         CURRENT_VERSION=$(node -p "require('./package.json').version")
         COMMIT_MSG=$(git log -1 --pretty=%B)
+        
+        # Check if we should skip release based on rules
+        echo "Checking skip rules..."
+        SKIP_RULES='${{ inputs.release-skip-rules }}'
+        echo "Skip rules: $SKIP_RULES"
+        echo "Commit message: $COMMIT_MSG"
+        
+        echo "$SKIP_RULES" | jq -r '.[]' | while read -r rule; do
+          if echo "$COMMIT_MSG" | grep -q "$rule"; then
+            echo "Skipping release: commit message matches rule '$rule'"
+            echo "version=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+        done
         
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           BUMP_TYPE="${{ inputs.release-type }}"
