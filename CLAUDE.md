@@ -15,6 +15,7 @@ This is a reusable GitHub Action that provides a complete CI/CD pipeline for Nod
 - **First commit bump control** and configurable skip rules
 - Changelog generation using conventional commits
 - **Configurable git tagging**
+- **Existing release handling** with error or override options
 - Package publishing to NPM registries with automatic authentication
 - Issue commenting for releases
 
@@ -22,7 +23,7 @@ This is a reusable GitHub Action that provides a complete CI/CD pipeline for Nod
 
 The entire CI/CD pipeline is contained in a single `action.yml` file that defines:
 
-- **Inputs**: 25+ configurable parameters for customization
+- **Inputs**: 26+ configurable parameters for customization
 - **Composite Action Steps**: Sequential steps for setup, CI, and release
 - **Version Determination**: Automatic semantic version bumping based on commit messages or manual triggers
 - **Changelog Generation**: Categorized changelog based on conventional commit types
@@ -56,7 +57,8 @@ The entire CI/CD pipeline is contained in a single `action.yml` file that define
 - Generates structured markdown changelog
 - Links to full changelog on GitHub
 
-### Release Workflow with Git Tagging (action.yml:380-450)
+### Release Workflow with Git Tagging (action.yml:380-470)
+- **Existing Release Handling**: Checks for existing tags/releases and can error or override
 - Commits version bump and changelog
 - Creates GitHub releases (with prerelease detection)
 - **Configurable Git Tagging**: `release-create-tag` controls tag creation

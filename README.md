@@ -148,6 +148,7 @@ jobs:
 | `release-version-patterns` | Custom patterns for version determination (JSON object) | No | 20+ built-in patterns |
 | `release-create-tag` | Create git tag for the release | No | `true` |
 | `release-use-pr-patterns` | Use PR title for pattern detection | No | `true` |
+| `release-override-existing` | Behavior when tag/release exists: 'error' or 'override' | No | `error` |
 | `github-token` | GitHub token for authentication | Yes | - |
 
 ## Outputs
@@ -163,6 +164,21 @@ jobs:
 The action supports advanced version control with 20+ built-in patterns, PR title detection, custom patterns, and more.
 
 **📖 For complete versioning documentation, see [VERSIONING.md](./VERSIONING.md)**
+
+### Handling Existing Releases
+
+By default, the action will fail if a tag or release already exists for the version being released. You can control this behavior with the `release-override-existing` parameter:
+
+- `error` (default): Fail the workflow if tag/release already exists
+- `override`: Delete the existing tag/release and create a new one
+
+```yaml
+- uses: spanscale/node-github-action@v1.0.0
+  with:
+    enable-release: true
+    release-override-existing: 'override'  # Allow overriding existing releases
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
 
 ### Quick Examples
 

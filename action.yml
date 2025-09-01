@@ -97,6 +97,10 @@ inputs:
     description: "Use PR title for pattern detection when triggered by PR events"
     required: false
     default: "true"
+  release-override-existing:
+    description: "Behavior when tag/release already exists: 'error' (default) or 'override'"
+    required: false
+    default: "error"
   github-token:
     description: "GitHub token for authentication"
     required: true
@@ -415,6 +419,43 @@ runs:
       run: |
         git push origin main
 
+    - name: Check for existing tag/release
+      if: ${{ inputs.enable-release == 'true' && steps.version.outputs.version }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        TAG_NAME="v${{ steps.version.outputs.version }}"
+        
+        # Check if tag already exists
+        if git ls-remote --tags origin | grep -q "refs/tags/$TAG_NAME$"; then
+          echo "Tag $TAG_NAME already exists"
+          
+          if [ "${{ inputs.release-override-existing }}" = "error" ]; then
+            echo "Error: Tag $TAG_NAME already exists. Set release-override-existing to 'override' to replace it."
+            exit 1
+          else
+            echo "Warning: Overriding existing tag $TAG_NAME"
+            # Delete existing tag locally and remotely
+            git tag -d "$TAG_NAME" 2>/dev/null || true
+            git push --delete origin "$TAG_NAME" 2>/dev/null || true
+          fi
+        fi
+        
+        # Check if release already exists
+        if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+          echo "Release $TAG_NAME already exists"
+          
+          if [ "${{ inputs.release-override-existing }}" = "error" ]; then
+            echo "Error: Release $TAG_NAME already exists. Set release-override-existing to 'override' to replace it."
+            exit 1
+          else
+            echo "Warning: Overriding existing release $TAG_NAME"
+            # Delete existing release
+            gh release delete "$TAG_NAME" --yes
+          fi
+        fi
+
     - name: Create GitHub Release
       if: ${{ inputs.enable-release == 'true' && steps.version.outputs.version }}
       id: release
@@ -449,10 +490,13 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
-        echo "Creating git tag v${{ steps.version.outputs.version }}"
-        git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
-        git push origin "v${{ steps.version.outputs.version }}"
-        echo "Git tag v${{ steps.version.outputs.version }} created and pushed"
+        TAG_NAME="v${{ steps.version.outputs.version }}"
+        echo "Creating git tag $TAG_NAME"
+        
+        # Create tag (this should work since we've already handled existing tags in the previous step)
+        git tag -a "$TAG_NAME" -m "Release $TAG_NAME"
+        git push origin "$TAG_NAME"
+        echo "Git tag $TAG_NAME created and pushed"
 
     - name: Publish to NPM
       if: ${{ inputs.enable-release == 'true' && inputs.release-publish-package == 'true' && steps.version.outputs.version }}
