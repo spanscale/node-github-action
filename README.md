@@ -110,6 +110,11 @@ on:
 jobs:
   ci-cd:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write    # For creating releases and pushing tags
+      packages: write    # For publishing packages
+      issues: write      # For commenting on issues
+      pull-requests: read # For reading PR information
     steps:
       - uses: actions/checkout@v4
         with:
@@ -218,11 +223,25 @@ By default, the action will fail if a tag or release already exists for the vers
 ### Full CI with Releases Pipeline
 
 ```yaml
-- uses: spanscale/node-github-action@v1.0.0
-  with:
-    enable-release: ${{ github.ref == 'refs/heads/main' }}
-    release-publish-package: 'true'
-    github-token: ${{ secrets.GITHUB_TOKEN }}
+jobs:
+  ci-cd:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write    # For creating releases and pushing tags
+      packages: write    # For publishing packages
+      issues: write      # For commenting on issues
+      pull-requests: read # For reading PR information
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - uses: spanscale/node-github-action@v1.0.0
+        with:
+          enable-release: ${{ github.ref == 'refs/heads/main' }}
+          release-publish-package: 'true'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Requirements
@@ -230,7 +249,29 @@ By default, the action will fail if a tag or release already exists for the vers
 - Repository must have a `package.json` file for version management
 - For publishing, appropriate registry authentication must be configured
 - For changelog generation, commit messages should follow conventional commit format
-- GitHub token needs appropriate permissions for releases and package publishing
+- **GitHub token needs appropriate permissions for releases and package publishing**
+
+### Required Permissions
+
+When using release features, your workflow **must** include these permissions:
+
+```yaml
+permissions:
+  contents: write    # Required for creating releases and pushing tags
+  packages: write    # Required for publishing packages (if release-publish-package: true)
+  issues: write      # Required for issue commenting (if release-comment-issues: true)
+  pull-requests: read # Required for PR title pattern detection
+```
+
+### Common Permission Errors
+
+**❌ `403 Permission permission_denied: write_package`**
+- Missing `packages: write` permission in workflow
+- Add the permissions section to your workflow job
+
+**❌ `403 Resource not accessible by integration`**
+- Missing `contents: write` permission in workflow
+- Required for creating releases and pushing tags
 
 ## License
 

@@ -30,10 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      contents: write
-      packages: write
-      issues: write
-      pull-requests: read
+      contents: write      # Required for creating releases and pushing tags
+      packages: write      # Required for publishing packages
+      issues: write        # Required for issue commenting
+      pull-requests: read  # Required for PR title pattern detection
     
     steps:
       - name: Checkout code
