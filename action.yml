@@ -342,7 +342,42 @@ runs:
           if [ -z "$prev_tag" ]; then
             echo "Initial release"
             echo ""
-            git log --pretty=format:"- %s (%h)" | head -20
+            
+            # Categorize commits for initial release too
+            declare -A categories=(
+              ["feat"]="New Features"
+              ["fix"]="Bug Fixes" 
+              ["perf"]="Performance Improvements"
+              ["refactor"]="Code Refactoring"
+              ["docs"]="Documentation"
+              ["test"]="Testing"
+              ["chore"]="Maintenance"
+              ["ci"]="CI/CD"
+              ["style"]="Code Style"
+            )
+            
+            local has_categorized=false
+            for category in feat fix perf refactor docs test chore ci style; do
+              local changes=$(git log --pretty=format:"%s (%h)" | \
+                grep "^${category}[:(]" | \
+                sed "s/^${category}[:(][^):]*[):] */- /" | head -10)
+              
+              if [ -n "$changes" ]; then
+                echo "### ${categories[$category]}"
+                echo ""
+                echo "$changes"
+                echo ""
+                has_categorized=true
+              fi
+            done
+            
+            # Show other changes if no categorized commits found
+            if [ "$has_categorized" = "false" ]; then
+              echo "### Changes"
+              echo ""
+              git log --pretty=format:"- %s (%h)" | head -10
+              echo ""
+            fi
           else
             declare -A categories=(
               ["feat"]="New Features"
@@ -382,7 +417,11 @@ runs:
           fi
           
           echo ""
-          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${prev_tag}...v${new_version}"
+          if [ -n "$prev_tag" ]; then
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${prev_tag}...v${new_version}"
+          else
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/commits/v${new_version}"
+          fi
         }
         
         PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
