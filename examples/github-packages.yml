@@ -1,0 +1,53 @@
+# GitHub Packages Release Pipeline
+# CI/CD with publishing to GitHub Packages Registry
+
+name: GitHub Packages CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ci-cd:
+    name: CI/CD with GitHub Packages
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      packages: write
+      issues: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run CI/CD Pipeline
+        uses: spanscale/node-github-action@v1
+        with:
+          # GitHub Packages registry (default)
+          registry-url: 'https://npm.pkg.github.com'
+          registry-scope: '@${{ github.repository_owner }}'
+          
+          # Custom scripts including security audit
+          run-scripts: |
+            [
+              "pnpm install --frozen-lockfile",
+              "pnpm audit --audit-level moderate",
+              "pnpm build",
+              "pnpm type-check",
+              "pnpm lint", 
+              "pnpm test"
+            ]
+          
+          # Release configuration for GitHub Packages
+          enable-release: ${{ github.ref == 'refs/heads/main' }}
+          release-bump-version: 'true'
+          release-create-changelog: 'true'
+          release-publish-package: 'true'
+          
+          github-token: ${{ secrets.GITHUB_TOKEN }}

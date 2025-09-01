@@ -1,0 +1,83 @@
+# Custom Scripts Example
+# Using custom build tools and testing frameworks
+
+name: Custom Scripts CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Example with Vite and Vitest
+  vite-project:
+    name: Vite Project CI
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Vite CI Pipeline
+        uses: spanscale/node-github-action@v1
+        with:
+          run-scripts: |
+            [
+              "pnpm install --frozen-lockfile",
+              "pnpm build:vite",
+              "pnpm type-check",
+              "pnpm lint:eslint",
+              "pnpm test:vitest --coverage"
+            ]
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Example with custom bundler
+  webpack-project:
+    name: Webpack Project CI
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Webpack CI Pipeline
+        uses: spanscale/node-github-action@v1
+        with:
+          node-version: '18.x'
+          pnpm-version: '8'
+          
+          run-scripts: |
+            [
+              "pnpm install --frozen-lockfile",
+              "pnpm webpack:build:prod",
+              "pnpm tsc:check",
+              "pnpm eslint:check",
+              "pnpm jest:test",
+              "pnpm bundle:analyze"
+            ]
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Example with security scanning
+  security-focused:
+    name: Security-Focused CI
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Run Security CI Pipeline
+        uses: spanscale/node-github-action@v1
+        with:
+          run-scripts: |
+            [
+              "pnpm install --frozen-lockfile",
+              "pnpm audit --audit-level high",
+              "pnpm build",
+              "pnpm type-check",
+              "pnpm lint:security",
+              "pnpm test",
+              "pnpm snyk:test"
+            ]
+          github-token: ${{ secrets.GITHUB_TOKEN }}

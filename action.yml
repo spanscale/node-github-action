@@ -1,0 +1,339 @@
+name: "TypeScript CI/CD Pipeline"
+description: "Complete CI/CD pipeline for TypeScript projects with optional release automation"
+author: "spanscale"
+
+branding:
+  icon: "package"
+  color: "blue"
+
+inputs:
+  node-version:
+    description: "Node.js version to use"
+    required: false
+    default: "22.x"
+  pnpm-version:
+    description: "pnpm version to use"
+    required: false
+    default: "10"
+  working-directory:
+    description: "Working directory for commands"
+    required: false
+    default: "."
+  run-scripts:
+    description: "Scripts to run (JSON array)"
+    required: false
+    default: '["pnpm install --frozen-lockfile", "pnpm type-check", "pnpm lint", "pnpm build", "pnpm test"]'
+  registry-url:
+    description: "NPM registry URL"
+    required: false
+    default: "https://npm.pkg.github.com"
+  registry-scope:
+    description: "NPM registry scope"
+    required: false
+    default: "@spanscale"
+  enable-release:
+    description: "Enable release workflow after CI passes"
+    required: false
+    default: "false"
+  release-bump-version:
+    description: "Enable automatic version bumping"
+    required: false
+    default: "true"
+  release-create-changelog:
+    description: "Enable automatic changelog generation"
+    required: false
+    default: "true"
+  release-comment-issues:
+    description: "Enable commenting on related issues"
+    required: false
+    default: "false"
+  release-publish-package:
+    description: "Enable package publishing"
+    required: false
+    default: "false"
+  release-type:
+    description: "Release type for manual triggers (patch, minor, major, prepatch, preminor, premajor, prerelease)"
+    required: false
+    default: "patch"
+  github-token:
+    description: "GitHub token for authentication"
+    required: true
+
+outputs:
+  version:
+    description: "The new version number if a release was created"
+    value: ${{ steps.version.outputs.version }}
+  release-url:
+    description: "URL of the created GitHub release"
+    value: ${{ steps.release.outputs.url }}
+  package-url:
+    description: "URL of the published package"
+    value: ${{ steps.publish.outputs.url }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        registry-url: ${{ inputs.registry-url }}
+        scope: ${{ inputs.registry-scope }}
+    
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v2
+      with:
+        version: ${{ inputs.pnpm-version }}
+        run_install: false
+    
+    - name: Run CI scripts
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        echo "Running CI pipeline..."
+        
+        # Handle cases where GitHub Actions doesn't pass default values properly
+        scripts='${{ inputs.run-scripts }}'
+        
+        # Debug output
+        echo "Raw run-scripts value: '$scripts'"
+        
+        # Fallback to defaults if empty or not properly set
+        if [[ -z "$scripts" || "$scripts" == "null" || "$scripts" == "" ]]; then
+          echo "Using fallback default scripts"
+          scripts='["pnpm install --frozen-lockfile", "pnpm type-check", "pnpm lint", "pnpm test"]'
+        fi
+        
+        echo "Final scripts to execute: $scripts"
+        
+        # Execute each script
+        echo "$scripts" | jq -r '.[]' | while read -r script; do
+          if [[ -n "$script" && "$script" != "null" ]]; then
+            echo "▶ Running: $script"
+            eval "$script"
+          fi
+        done
+
+    - name: Configure Git
+      if: ${{ inputs.enable-release == 'true' }}
+      shell: bash
+      run: |
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "github-actions[bot]"
+
+    - name: Determine version bump
+      if: ${{ inputs.enable-release == 'true' && inputs.release-bump-version == 'true' }}
+      id: version
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        determine_bump_type() {
+          local commit_msg="$1"
+          local current_version="$2"
+          
+          case "$commit_msg" in
+            *"[release:stable]"*)
+              if echo "$commit_msg" | grep -q "BREAKING CHANGE\|!:"; then
+                echo "major"
+              elif echo "$commit_msg" | grep -q "^feat"; then
+                echo "minor"
+              else
+                echo "patch"
+              fi
+              return ;;
+            *"[release:premajor]"*) echo "premajor"; return ;;
+            *"[release:preminor]"*) echo "preminor"; return ;;
+            *"[release:prepatch]"*) echo "prepatch"; return ;;
+          esac
+          
+          local is_prerelease=false
+          if echo "$current_version" | grep -q "-"; then
+            is_prerelease=true
+          fi
+          
+          case "$commit_msg" in
+            *"BREAKING CHANGE"*|*"!:"*)
+              echo $($is_prerelease && echo "premajor" || echo "major") ;;
+            "feat"*|"feat("*)
+              echo $($is_prerelease && echo "preminor" || echo "minor") ;;
+            "fix"*|"fix("*)
+              echo $($is_prerelease && echo "prerelease" || echo "patch") ;;
+            "docs"*|"test"*|"chore"*|"refactor"*|"perf"*|"ci"*|"style"*)
+              echo $($is_prerelease && echo "prerelease" || echo "none") ;;
+            *)
+              echo "none" ;;
+          esac
+        }
+        
+        CURRENT_VERSION=$(node -p "require('./package.json').version")
+        COMMIT_MSG=$(git log -1 --pretty=%B)
+        
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          BUMP_TYPE="${{ inputs.release-type }}"
+        else
+          BUMP_TYPE=$(determine_bump_type "$COMMIT_MSG" "$CURRENT_VERSION")
+        fi
+        
+        echo "Current version: $CURRENT_VERSION"
+        echo "Determined bump type: $BUMP_TYPE"
+        
+        if [ "$BUMP_TYPE" = "none" ]; then
+          echo "No version bump needed"
+          exit 0
+        fi
+        
+        case "$BUMP_TYPE" in
+          premajor|preminor|prepatch|prerelease)
+            npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version ;;
+          *)
+            npm version "$BUMP_TYPE" --no-git-tag-version ;;
+        esac
+        
+        NEW_VERSION=$(node -p "require('./package.json').version")
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+        echo "New version: $NEW_VERSION"
+
+    - name: Generate changelog
+      if: ${{ inputs.enable-release == 'true' && inputs.release-create-changelog == 'true' && steps.version.outputs.version }}
+      id: changelog
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        generate_changelog() {
+          local new_version="$1"
+          local prev_tag="$2"
+          
+          cat << EOF
+        # Changelog for v${new_version}
+        
+        ## What's Changed
+        
+        EOF
+          
+          if [ -z "$prev_tag" ]; then
+            echo "Initial release"
+            echo ""
+            git log --pretty=format:"- %s (%h)" | head -20
+          else
+            declare -A categories=(
+              ["feat"]="New Features"
+              ["fix"]="Bug Fixes" 
+              ["perf"]="Performance Improvements"
+              ["refactor"]="Code Refactoring"
+              ["docs"]="Documentation"
+              ["test"]="Testing"
+              ["chore"]="Maintenance"
+              ["ci"]="CI/CD"
+              ["style"]="Code Style"
+            )
+            
+            for category in feat fix perf refactor docs test chore ci style; do
+              local changes=$(git log "${prev_tag}..HEAD" --pretty=format:"%s (%h)" | \
+                grep "^${category}[:(]" | \
+                sed "s/^${category}[:(][^):]*[):] */- /")
+              
+              if [ -n "$changes" ]; then
+                echo "### ${categories[$category]}"
+                echo ""
+                echo "$changes"
+                echo ""
+              fi
+            done
+            
+            local other_changes=$(git log "${prev_tag}..HEAD" --pretty=format:"%s (%h)" | \
+              grep -v "^feat[:(]\|^fix[:(]\|^perf[:(]\|^refactor[:(]\|^docs[:(]\|^test[:(]\|^chore[:(]\|^ci[:(]\|^style[:(]" | \
+              sed "s/^/- /")
+            
+            if [ -n "$other_changes" ]; then
+              echo "### Other Changes"
+              echo ""
+              echo "$other_changes"
+              echo ""
+            fi
+          fi
+          
+          echo ""
+          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${prev_tag}...v${new_version}"
+        }
+        
+        PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        NEW_VERSION="${{ steps.version.outputs.version }}"
+        
+        CHANGELOG_CONTENT=$(generate_changelog "$NEW_VERSION" "$PREV_TAG")
+        
+        if [ -f CHANGELOG.md ]; then
+          echo -e "${CHANGELOG_CONTENT}\n\n$(cat CHANGELOG.md)" > CHANGELOG_NEW.md
+          mv CHANGELOG_NEW.md CHANGELOG.md
+        else
+          echo "$CHANGELOG_CONTENT" > CHANGELOG.md
+        fi
+        
+        echo "$CHANGELOG_CONTENT" >> $GITHUB_STEP_SUMMARY
+
+    - name: Commit changes
+      if: ${{ inputs.enable-release == 'true' && inputs.release-bump-version == 'true' && steps.version.outputs.version }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        git add package.json pnpm-lock.yaml
+        if [ -f CHANGELOG.md ] && [ "${{ inputs.release-create-changelog }}" = "true" ]; then
+          git add CHANGELOG.md
+        fi
+        git commit -m "chore(release): v${{ steps.version.outputs.version }} [skip ci]" || echo "No changes to commit"
+
+    - name: Push changes
+      if: ${{ inputs.enable-release == 'true' && inputs.release-bump-version == 'true' && steps.version.outputs.version }}
+      shell: bash
+      run: |
+        git push origin main
+
+    - name: Create GitHub Release
+      if: ${{ inputs.enable-release == 'true' && steps.version.outputs.version }}
+      id: release
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        RELEASE_NOTES=""
+        if [ "${{ inputs.release-create-changelog }}" = "true" ] && [ -f CHANGELOG.md ]; then
+          RELEASE_NOTES=$(head -50 CHANGELOG.md)
+        fi
+        
+        RELEASE_URL=$(gh release create v${{ steps.version.outputs.version }} \
+          --title "Release v${{ steps.version.outputs.version }}" \
+          --notes "${RELEASE_NOTES}" \
+          ${{ contains(steps.version.outputs.version, '-') && '--prerelease' || '' }} \
+          --json url --jq '.url')
+        
+        echo "url=$RELEASE_URL" >> $GITHUB_OUTPUT
+
+    - name: Publish to NPM
+      if: ${{ inputs.enable-release == 'true' && inputs.release-publish-package == 'true' && steps.version.outputs.version }}
+      id: publish
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        pnpm publish --no-git-checks
+        PACKAGE_URL="${{ inputs.registry-url }}/@${{ inputs.registry-scope }}/${{ github.event.repository.name }}"
+        echo "url=$PACKAGE_URL" >> $GITHUB_OUTPUT
+
+    - name: Comment on issues
+      if: ${{ inputs.enable-release == 'true' && inputs.release-comment-issues == 'true' && steps.version.outputs.version }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        ISSUES=$(git log ${PREV_TAG}..HEAD --pretty=format:"%B" | grep -oE '#[0-9]+' | sort -u)
+        
+        for ISSUE in $ISSUES; do
+          ISSUE_NUM=${ISSUE#"#"}
+          gh api repos/${{ github.repository }}/issues/${ISSUE_NUM}/comments \
+            --method POST \
+            --field body="This issue has been addressed in release [v${{ steps.version.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }})"
+        done

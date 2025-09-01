@@ -1,0 +1,62 @@
+# Prerelease Workflow
+# Automated prerelease creation from develop branch
+
+name: Prerelease CI/CD
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+  workflow_dispatch:
+    inputs:
+      prerelease-type:
+        description: 'Prerelease type'
+        required: true
+        default: 'prerelease'
+        type: choice
+        options:
+          - prerelease
+          - prepatch
+          - preminor
+          - premajor
+
+jobs:
+  prerelease:
+    name: Prerelease Pipeline
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run Prerelease Pipeline
+        uses: spanscale/node-github-action@v1
+        with:
+          # Enhanced testing for prereleases
+          run-scripts: |
+            [
+              "pnpm install --frozen-lockfile",
+              "pnpm build", 
+              "pnpm type-check",
+              "pnpm lint",
+              "pnpm test",
+              "pnpm test:integration",
+              "pnpm test:e2e"
+            ]
+          
+          # Prerelease configuration
+          enable-release: ${{ github.ref == 'refs/heads/develop' }}
+          release-bump-version: 'true'
+          release-create-changelog: 'true'
+          release-publish-package: 'true'
+          release-type: ${{ github.event.inputs.prerelease-type || 'prerelease' }}
+          
+          github-token: ${{ secrets.GITHUB_TOKEN }}

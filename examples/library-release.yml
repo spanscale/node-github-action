@@ -1,0 +1,81 @@
+# Library Release Pipeline
+# Complete CI/CD for an npm library with automated releases
+
+name: Library CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      release-type:
+        description: 'Release type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prepatch
+          - preminor
+          - premajor
+          - prerelease
+
+jobs:
+  ci-cd:
+    name: CI/CD Pipeline
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      packages: write
+      issues: write
+      pull-requests: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Run CI/CD Pipeline
+        uses: spanscale/node-github-action@v1
+        with:
+          # Custom Node.js version
+          node-version: '20.x'
+          
+          # Custom pnpm version
+          pnpm-version: '9'
+          
+          # Custom CI scripts for library
+          run-scripts: |
+            [
+              "pnpm install --frozen-lockfile",
+              "pnpm build",
+              "pnpm type-check", 
+              "pnpm lint",
+              "pnpm test",
+              "pnpm test:coverage"
+            ]
+          
+          # NPM registry configuration
+          registry-url: 'https://registry.npmjs.org'
+          registry-scope: '@mycompany'
+          
+          # Enable release only on main branch
+          enable-release: ${{ github.ref == 'refs/heads/main' }}
+          
+          # Release configuration
+          release-bump-version: 'true'
+          release-create-changelog: 'true'
+          release-publish-package: 'true'
+          release-comment-issues: 'true'
+          release-type: ${{ github.event.inputs.release-type || 'patch' }}
+          
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

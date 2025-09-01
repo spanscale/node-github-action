@@ -1,0 +1,74 @@
+# Monorepo CI Pipeline
+# Test multiple packages in a monorepo structure
+
+name: Monorepo CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Test the API package
+  test-api:
+    name: Test API Package
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Test API
+        uses: spanscale/node-github-action@v1
+        with:
+          working-directory: './packages/api'
+          run-scripts: |
+            [
+              "pnpm install --frozen-lockfile", 
+              "pnpm build", 
+              "pnpm type-check", 
+              "pnpm lint", 
+              "pnpm test",
+              "pnpm test:integration"
+            ]
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Test the web package
+  test-web:
+    name: Test Web Package
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Test Web
+        uses: spanscale/node-github-action@v1
+        with:
+          working-directory: './packages/web'
+          run-scripts: |
+            [
+              "pnpm install --frozen-lockfile",
+              "pnpm build",
+              "pnpm type-check",
+              "pnpm lint",
+              "pnpm test",
+              "pnpm test:e2e"
+            ]
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Test shared utilities
+  test-utils:
+    name: Test Utils Package
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Test Utils
+        uses: spanscale/node-github-action@v1
+        with:
+          working-directory: './packages/utils'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
