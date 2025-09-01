@@ -467,4 +467,4 @@ A: The action is self-contained for simplicity. For complex version management, 
 A: The action examines the most recent commit, which would be the merge commit. Structure your merge commit messages according to your versioning patterns.
 
 **Q: What happens if a tag or release already exists for the version I'm trying to create?**
-A: By default, the action will fail with an error. Set `release-override-existing: 'override'` to automatically delete and recreate existing tags/releases. Use this carefully as it will permanently remove the existing release.
+A: By default, the action will fail with an error. Set `release-override-existing: true` to automatically delete and recreate existing tags/releases. Use this carefully as it will permanently remove the existing release.

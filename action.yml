@@ -98,9 +98,9 @@ inputs:
     required: false
     default: "true"
   release-override-existing:
-    description: "Behavior when tag/release already exists: 'error' (default) or 'override'"
+    description: "Override existing tags/releases if they exist (true/false)"
     required: false
-    default: "error"
+    default: "false"
   github-token:
     description: "GitHub token for authentication"
     required: true
@@ -431,8 +431,8 @@ runs:
         if git ls-remote --tags origin | grep -q "refs/tags/$TAG_NAME$"; then
           echo "Tag $TAG_NAME already exists"
           
-          if [ "${{ inputs.release-override-existing }}" = "error" ]; then
-            echo "Error: Tag $TAG_NAME already exists. Set release-override-existing to 'override' to replace it."
+          if [ "${{ inputs.release-override-existing }}" = "false" ]; then
+            echo "Error: Tag $TAG_NAME already exists. Set release-override-existing to true to replace it."
             exit 1
           else
             echo "Warning: Overriding existing tag $TAG_NAME"
@@ -446,8 +446,8 @@ runs:
         if gh release view "$TAG_NAME" >/dev/null 2>&1; then
           echo "Release $TAG_NAME already exists"
           
-          if [ "${{ inputs.release-override-existing }}" = "error" ]; then
-            echo "Error: Release $TAG_NAME already exists. Set release-override-existing to 'override' to replace it."
+          if [ "${{ inputs.release-override-existing }}" = "false" ]; then
+            echo "Error: Release $TAG_NAME already exists. Set release-override-existing to true to replace it."
             exit 1
           else
             echo "Warning: Overriding existing release $TAG_NAME"
