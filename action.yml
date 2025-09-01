@@ -247,9 +247,10 @@ runs:
           IS_FIRST_RELEASE=true
           echo "First release detected"
           if [ "${{ inputs.release-first-commit-bump }}" = "false" ]; then
-            echo "First commit detected, skipping version bump (release-first-commit-bump=false)"
-            echo "version=" >> $GITHUB_OUTPUT
-            exit 0
+            echo "First commit detected, skipping version bump but creating release with current version (release-first-commit-bump=false)"
+            echo "Using current version from package.json: $CURRENT_VERSION"
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            # Skip to changelog generation - don't exit, let the release process continue
           fi
         fi
         
@@ -284,35 +285,40 @@ runs:
           fi
         done
         
-        # If no custom pattern matched, use standard logic
-        if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            BUMP_TYPE="${{ inputs.release-type }}"
-          else
-            BUMP_TYPE=$(determine_bump_type "$COMMIT_MSG" "$CURRENT_VERSION")
-          fi
-        fi
-        
-        # Only proceed with version bumping if no custom pattern was matched
-        if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
-          echo "Current version: $CURRENT_VERSION"
-          echo "Determined bump type: $BUMP_TYPE"
-          
-          if [ "$BUMP_TYPE" = "none" ]; then
-            echo "No version bump needed"
-            exit 0
+        # Skip version determination if we're using current version for first commit
+        if [ "$IS_FIRST_RELEASE" = "true" ] && [ "${{ inputs.release-first-commit-bump }}" = "false" ]; then
+          echo "Skipping version bump logic, using current version for first release"
+        else
+          # If no custom pattern matched, use standard logic
+          if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              BUMP_TYPE="${{ inputs.release-type }}"
+            else
+              BUMP_TYPE=$(determine_bump_type "$COMMIT_MSG" "$CURRENT_VERSION")
+            fi
           fi
           
-          case "$BUMP_TYPE" in
-            premajor|preminor|prepatch|prerelease)
-              npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version ;;
-            *)
-              npm version "$BUMP_TYPE" --no-git-tag-version ;;
-          esac
-          
-          NEW_VERSION=$(node -p "require('./package.json').version")
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "New version: $NEW_VERSION"
+          # Only proceed with version bumping if no custom pattern was matched
+          if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
+            echo "Current version: $CURRENT_VERSION"
+            echo "Determined bump type: $BUMP_TYPE"
+            
+            if [ "$BUMP_TYPE" = "none" ]; then
+              echo "No version bump needed"
+              exit 0
+            fi
+            
+            case "$BUMP_TYPE" in
+              premajor|preminor|prepatch|prerelease)
+                npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version ;;
+              *)
+                npm version "$BUMP_TYPE" --no-git-tag-version ;;
+            esac
+            
+            NEW_VERSION=$(node -p "require('./package.json').version")
+            echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+            echo "New version: $NEW_VERSION"
+          fi
         fi
 
     - name: Generate changelog
