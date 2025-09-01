@@ -154,6 +154,7 @@ jobs:
 | `release-create-tag` | Create git tag for the release | No | `true` |
 | `release-use-pr-patterns` | Use PR title for pattern detection | No | `true` |
 | `release-override-existing` | Override existing tags/releases if they exist | No | `false` |
+| `package-name` | Package name for publishing (auto-detected from package.json if not specified) | No | - |
 | `github-token` | GitHub token for authentication | Yes | - |
 
 ## Outputs
@@ -277,7 +278,38 @@ permissions:
 - Package name in `package.json` doesn't match repository owner/organization
 - For GitHub Packages, package name must be scoped to repository owner
 - Example: Repository `myorg/mypackage` requires package name `@myorg/mypackage`
-- Either update `package.json` name or configure different registry settings
+- See [Package Name Handling](#package-name-handling) below for solutions
+
+### Package Name Handling
+
+The action automatically detects your package name from `package.json`. If your repository name differs from your desired package name, you have several options:
+
+**Option 1: Update package.json (Recommended for GitHub Packages)**
+```json
+{
+  "name": "@myorg/my-awesome-package",
+  "version": "1.0.0"
+}
+```
+
+**Option 2: Override package name in workflow**
+```yaml
+- uses: spanscale/node-github-action@v1.0.0
+  with:
+    package-name: "@myorg/my-awesome-package"
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+**Option 3: Use different registry (for public packages)**
+```yaml
+- uses: spanscale/node-github-action@v1.0.0
+  with:
+    registry-url: 'https://registry.npmjs.org'
+    registry-scope: ''  # No scope needed for npmjs.org
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+  env:
+    NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
 
 ## License
 

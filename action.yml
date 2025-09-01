@@ -101,6 +101,10 @@ inputs:
     description: "Override existing tags/releases if they exist (true/false)"
     required: false
     default: "false"
+  package-name:
+    description: "Package name for publishing (auto-detected from package.json if not specified)"
+    required: false
+    default: ""
   github-token:
     description: "GitHub token for authentication"
     required: true
@@ -559,7 +563,25 @@ runs:
         echo "Package name from package.json: $PACKAGE_NAME"
         
         pnpm publish --no-git-checks
-        PACKAGE_URL="${{ inputs.registry-url }}/@${{ inputs.registry-scope }}/${{ github.event.repository.name }}"
+        
+        # Determine package name (from input or package.json)
+        if [ -n "${{ inputs.package-name }}" ]; then
+          PACKAGE_NAME="${{ inputs.package-name }}"
+          echo "Using package name from input: $PACKAGE_NAME"
+        else
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          echo "Using package name from package.json: $PACKAGE_NAME"
+        fi
+        
+        # Generate package URL based on package name
+        if [[ "$PACKAGE_NAME" == @* ]]; then
+          # Package is already scoped, use as-is
+          PACKAGE_URL="${{ inputs.registry-url }}/$PACKAGE_NAME"
+        else
+          # Package is not scoped, construct with registry scope
+          PACKAGE_URL="${{ inputs.registry-url }}/@${{ inputs.registry-scope }}/$PACKAGE_NAME"
+        fi
+        echo "Generated package URL: $PACKAGE_URL"
         echo "url=$PACKAGE_URL" >> $GITHUB_OUTPUT
 
     - name: Comment on issues
