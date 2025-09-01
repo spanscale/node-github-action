@@ -59,6 +59,18 @@ inputs:
     description: "Skip release if commit message contains these patterns (JSON array)"
     required: false
     default: '["[skip ci]", "[skip release]", "chore(release):"]'
+  release-first-commit-bump:
+    description: "Enable version bump on first commit (initial release)"
+    required: false
+    default: "false"
+  release-version-patterns:
+    description: "Custom patterns for version determination (JSON object)"
+    required: false
+    default: '{"[release:major]": "major", "[release:minor]": "minor", "[release:patch]": "patch", "[release:premajor]": "premajor", "[release:preminor]": "preminor", "[release:prepatch]": "prepatch", "[release:v*]": "exact"}'
+  release-create-tag:
+    description: "Create git tag for the release"
+    required: false
+    default: "true"
   github-token:
     description: "GitHub token for authentication"
     required: true
@@ -190,30 +202,79 @@ runs:
           fi
         done
         
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          BUMP_TYPE="${{ inputs.release-type }}"
-        else
-          BUMP_TYPE=$(determine_bump_type "$COMMIT_MSG" "$CURRENT_VERSION")
+        # Check if this is the first release
+        IS_FIRST_RELEASE=false
+        if ! git describe --tags --abbrev=0 2>/dev/null; then
+          IS_FIRST_RELEASE=true
+          echo "First release detected"
+          if [ "${{ inputs.release-first-commit-bump }}" = "false" ]; then
+            echo "First commit detected, skipping version bump (release-first-commit-bump=false)"
+            echo "version=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
         fi
         
-        echo "Current version: $CURRENT_VERSION"
-        echo "Determined bump type: $BUMP_TYPE"
+        # Check custom version patterns
+        echo "Checking custom version patterns..."
+        VERSION_PATTERNS='${{ inputs.release-version-patterns }}'
+        echo "Version patterns: $VERSION_PATTERNS"
         
-        if [ "$BUMP_TYPE" = "none" ]; then
-          echo "No version bump needed"
-          exit 0
+        CUSTOM_PATTERN_MATCHED=false
+        for pattern in $(echo "$VERSION_PATTERNS" | jq -r 'keys[]'); do
+          if echo "$COMMIT_MSG" | grep -q "$pattern"; then
+            ACTION=$(echo "$VERSION_PATTERNS" | jq -r --arg p "$pattern" '.[$p]')
+            echo "Custom pattern matched: $pattern → $ACTION"
+            
+            if [[ "$pattern" == "[release:v"* && "$ACTION" == "exact" ]]; then
+              # Extract exact version from pattern like [release:v2.0.0]
+              EXACT_VERSION=$(echo "$COMMIT_MSG" | grep -oE '\[release:v[0-9]+\.[0-9]+\.[0-9]+' | sed 's/\[release:v//')
+              if [[ -n "$EXACT_VERSION" ]]; then
+                echo "Setting exact version: $EXACT_VERSION"
+                npm version "$EXACT_VERSION" --no-git-tag-version --force
+                NEW_VERSION="$EXACT_VERSION"
+                echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+                echo "New version: $NEW_VERSION"
+                CUSTOM_PATTERN_MATCHED=true
+                break
+              fi
+            else
+              BUMP_TYPE="$ACTION"
+              CUSTOM_PATTERN_MATCHED=true
+              break
+            fi
+          fi
+        done
+        
+        # If no custom pattern matched, use standard logic
+        if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP_TYPE="${{ inputs.release-type }}"
+          else
+            BUMP_TYPE=$(determine_bump_type "$COMMIT_MSG" "$CURRENT_VERSION")
+          fi
         fi
         
-        case "$BUMP_TYPE" in
-          premajor|preminor|prepatch|prerelease)
-            npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version ;;
-          *)
-            npm version "$BUMP_TYPE" --no-git-tag-version ;;
-        esac
-        
-        NEW_VERSION=$(node -p "require('./package.json').version")
-        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "New version: $NEW_VERSION"
+        # Only proceed with version bumping if no custom pattern was matched
+        if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
+          echo "Current version: $CURRENT_VERSION"
+          echo "Determined bump type: $BUMP_TYPE"
+          
+          if [ "$BUMP_TYPE" = "none" ]; then
+            echo "No version bump needed"
+            exit 0
+          fi
+          
+          case "$BUMP_TYPE" in
+            premajor|preminor|prepatch|prerelease)
+              npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version ;;
+            *)
+              npm version "$BUMP_TYPE" --no-git-tag-version ;;
+          esac
+          
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+        fi
 
     - name: Generate changelog
       if: ${{ inputs.enable-release == 'true' && inputs.release-create-changelog == 'true' && steps.version.outputs.version }}
@@ -336,6 +397,17 @@ runs:
         # Generate release URL
         RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
         echo "url=$RELEASE_URL" >> $GITHUB_OUTPUT
+
+    - name: Create Git Tag
+      if: ${{ inputs.enable-release == 'true' && inputs.release-create-tag == 'true' && steps.version.outputs.version }}
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        echo "Creating git tag v${{ steps.version.outputs.version }}"
+        git tag -a "v${{ steps.version.outputs.version }}" -m "Release v${{ steps.version.outputs.version }}"
+        git push origin "v${{ steps.version.outputs.version }}"
+        echo "Git tag v${{ steps.version.outputs.version }} created and pushed"
 
     - name: Publish to NPM
       if: ${{ inputs.enable-release == 'true' && inputs.release-publish-package == 'true' && steps.version.outputs.version }}
