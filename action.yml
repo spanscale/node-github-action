@@ -510,12 +510,12 @@ runs:
         # Create the release (compatible with older gh CLI versions)
         if [[ "${{ steps.version.outputs.version }}" == *"-"* ]]; then
           gh release create v${{ steps.version.outputs.version }} \
-            --title "Release v${{ steps.version.outputs.version }}" \
+            --title "v${{ steps.version.outputs.version }}" \
             --notes "${RELEASE_NOTES}" \
             --prerelease
         else
           gh release create v${{ steps.version.outputs.version }} \
-            --title "Release v${{ steps.version.outputs.version }}" \
+            --title "v${{ steps.version.outputs.version }}" \
             --notes "${RELEASE_NOTES}"
         fi
         
