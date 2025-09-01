@@ -8,16 +8,21 @@ This is a reusable GitHub Action that provides a complete CI/CD pipeline for Nod
 
 - Node.js and pnpm setup
 - Configurable CI scripts (install, type-check, lint, test)
+- **Advanced version control** with 20+ built-in patterns
+- **PR title pattern detection** (enabled by default)
 - Optional automated release workflow with semantic versioning
+- **Custom version patterns** and exact version specification
+- **First commit bump control** and configurable skip rules
 - Changelog generation using conventional commits
-- Package publishing to NPM registries
+- **Configurable git tagging**
+- Package publishing to NPM registries with automatic authentication
 - Issue commenting for releases
 
 ## Architecture
 
 The entire CI/CD pipeline is contained in a single `action.yml` file that defines:
 
-- **Inputs**: 20+ configurable parameters for customization
+- **Inputs**: 25+ configurable parameters for customization
 - **Composite Action Steps**: Sequential steps for setup, CI, and release
 - **Version Determination**: Automatic semantic version bumping based on commit messages or manual triggers
 - **Changelog Generation**: Categorized changelog based on conventional commit types
@@ -25,27 +30,37 @@ The entire CI/CD pipeline is contained in a single `action.yml` file that define
 
 ## Key Components
 
-### Script Execution with Fallback (action.yml:95-118)
+### Script Execution with Fallback (action.yml:110-135)
 - Parses `run-scripts` input as JSON array
 - Includes fallback mechanism when GitHub Actions doesn't pass default values properly
 - Default scripts: `["pnpm install --frozen-lockfile", "pnpm type-check", "pnpm lint", "pnpm build", "pnpm test"]`
 - Debug output helps troubleshoot script parsing issues
 
-### Version Bumping Logic (action.yml:127-198)
+### PR Title vs Commit Message Detection (action.yml:194-203)
+- **PR Pattern Detection**: Uses PR title when triggered by `pull_request` events (default: enabled)
+- **Commit Message Fallback**: Uses commit messages for `push` events or when PR patterns disabled
+- Automatic source determination based on trigger event
+
+### Advanced Version Bumping Logic (action.yml:205-290)
+- **20+ Built-in Patterns**: `[major]`, `[minor]`, `[patch]`, `[hotfix]`, `[beta]`, `[alpha]`, etc.
+- **Custom Pattern Support**: User-defined patterns via `release-version-patterns` input
+- **Exact Version Control**: `[release:v2.1.0]` sets specific versions
+- **First Commit Control**: `release-first-commit-bump` prevents unexpected bumps
+- **Skip Rules**: Configurable patterns to prevent releases
 - Supports conventional commits (`feat:`, `fix:`, `BREAKING CHANGE`)
 - Manual release types via workflow_dispatch
 - Prerelease support with `-beta` suffix
-- Special release tags: `[release:stable]`, `[release:premajor]`, etc.
 
-### Changelog Generation (action.yml:199-275)
+### Changelog Generation (action.yml:295-375)
 - Categorizes commits by type (feat, fix, perf, refactor, docs, test, chore, ci, style)
 - Generates structured markdown changelog
 - Links to full changelog on GitHub
 
-### Release Workflow (action.yml:276-340)
+### Release Workflow with Git Tagging (action.yml:380-450)
 - Commits version bump and changelog
 - Creates GitHub releases (with prerelease detection)
-- Optional NPM publishing
+- **Configurable Git Tagging**: `release-create-tag` controls tag creation
+- Optional NPM publishing with automatic authentication
 - Issue commenting with release links
 
 ## Examples Directory
@@ -95,4 +110,16 @@ The `examples/` directory contains real-world usage patterns:
 - Default: pnpm with Node.js 22.x, GitHub Package Registry
 - CI Scripts fallback ensures action works even when defaults aren't passed
 - Release features are opt-in via `enable-release: true`
+- **20+ built-in version patterns** work out of the box
+- **PR title pattern detection enabled by default** for `pull_request` events
+- **First commit bump disabled by default** to prevent unexpected version jumps
+- **Comprehensive skip rules** prevent infinite release loops
 - Works with any Node.js + PNPM project by customizing the `run-scripts` input
+
+### Versioning Documentation
+For comprehensive versioning guidance, see `VERSIONING.md` which covers:
+- Built-in patterns and their behavior
+- Custom pattern configuration
+- PR title vs commit message usage
+- Common use cases and troubleshooting
+- Best practices for team adoption

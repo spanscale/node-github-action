@@ -27,7 +27,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Run CI/CD Pipeline
-        uses: spanscale/node-github-action@v1
+        uses: spanscale/node-github-action@v1.0.0
         with:
           # GitHub Packages registry (default)
           registry-url: 'https://npm.pkg.github.com'

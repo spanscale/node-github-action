@@ -6,10 +6,15 @@ A complete CI with Releases pipeline for Node.js projects using PNPM, with optio
 
 - Node.js and pnpm setup with configurable versions
 - Customizable CI scripts (install, type-check, lint, test)
+- **Advanced versioning control** with 20+ built-in patterns
+- **PR title pattern detection** (enabled by default)
 - Automatic semantic versioning based on conventional commits
+- **Custom version patterns** and **exact version control**
+- **First commit bump control** and **skip rules**
 - Changelog generation with categorized commit types
 - GitHub release creation with prerelease support
-- NPM package publishing
+- **Configurable git tagging**
+- NPM package publishing with automatic authentication
 - Issue commenting for releases
 
 ## Usage
@@ -25,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: spanscale/node-github-action@v1
+      - uses: spanscale/node-github-action@v1.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -33,7 +38,7 @@ jobs:
 ### Custom Node.js and pnpm Versions
 
 ```yaml
-- uses: spanscale/node-github-action@v1
+- uses: spanscale/node-github-action@v1.0.0
   with:
     node-version: '20.x'
     pnpm-version: '9'
@@ -43,7 +48,7 @@ jobs:
 ### Custom CI Scripts
 
 ```yaml
-- uses: spanscale/node-github-action@v1
+- uses: spanscale/node-github-action@v1.0.0
   with:
     run-scripts: '["pnpm install", "pnpm build", "pnpm test:unit", "pnpm test:integration"]'
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -52,7 +57,7 @@ jobs:
 ### For Non-TypeScript Projects
 
 ```yaml
-- uses: spanscale/node-github-action@v1
+- uses: spanscale/node-github-action@v1.0.0
   with:
     run-scripts: '["pnpm install", "pnpm build", "pnpm test"]'
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -61,7 +66,7 @@ jobs:
 ### Working Directory
 
 ```yaml
-- uses: spanscale/node-github-action@v1
+- uses: spanscale/node-github-action@v1.0.0
   with:
     working-directory: './packages/api'
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -70,7 +75,7 @@ jobs:
 ### Custom NPM Registry
 
 ```yaml
-- uses: spanscale/node-github-action@v1
+- uses: spanscale/node-github-action@v1.0.0
   with:
     registry-url: 'https://registry.npmjs.org'
     registry-scope: '@mycompany'
@@ -111,7 +116,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
       
-      - uses: spanscale/node-github-action@v1
+      - uses: spanscale/node-github-action@v1.0.0
         with:
           enable-release: ${{ github.ref == 'refs/heads/main' }}
           release-bump-version: 'true'
@@ -138,6 +143,11 @@ jobs:
 | `release-comment-issues` | Enable commenting on related issues | No | `false` |
 | `release-publish-package` | Enable package publishing | No | `false` |
 | `release-type` | Release type for manual triggers | No | `patch` |
+| `release-skip-rules` | Skip release if commit/PR matches patterns (JSON array) | No | `["[skip ci]", "[skip release]", "chore(release):"]` |
+| `release-first-commit-bump` | Enable version bump on first commit | No | `false` |
+| `release-version-patterns` | Custom patterns for version determination (JSON object) | No | 20+ built-in patterns |
+| `release-create-tag` | Create git tag for the release | No | `true` |
+| `release-use-pr-patterns` | Use PR title for pattern detection | No | `true` |
 | `github-token` | GitHub token for authentication | Yes | - |
 
 ## Outputs
@@ -150,42 +160,32 @@ jobs:
 
 ## Release Automation
 
-### Conventional Commits
+The action supports advanced version control with 20+ built-in patterns, PR title detection, custom patterns, and more.
 
-The action automatically determines version bumps based on conventional commit messages:
+**📖 For complete versioning documentation, see [VERSIONING.md](./VERSIONING.md)**
 
+### Quick Examples
+
+**Using built-in patterns:**
+- `[beta]` - 1.0.0 → 1.0.1-beta.0
+- `[hotfix]` - Patch release
+- `[major]` - Major version bump
+
+**PR title patterns (automatic):**
+- PR title: `feat: Add auth [feature]` → Minor bump
+- PR title: `fix: Bug fix [beta]` → 1.0.0 → 1.0.1-beta.0
+
+**Conventional commits (fallback):**
 - `feat:` - Minor version bump
 - `fix:` - Patch version bump
-- `BREAKING CHANGE:` or `!:` - Major version bump
-- `docs:`, `test:`, `chore:`, etc. - No version bump
-
-### Special Release Tags
-
-You can override automatic version detection using special tags in commit messages:
-
-- `[release:stable]` - Force stable release based on conventional commits
-- `[release:premajor]` - Premajor version bump
-- `[release:preminor]` - Preminor version bump  
-- `[release:prepatch]` - Prepatch version bump
-
-### Manual Releases
-
-Use workflow_dispatch to manually trigger releases with a specific version type:
-
-```yaml
-workflow_dispatch:
-  inputs:
-    release-type:
-      type: choice
-      options: [patch, minor, major, prepatch, preminor, premajor, prerelease]
-```
+- `BREAKING CHANGE:` - Major version bump
 
 ## Examples
 
 ### CI Only
 
 ```yaml
-- uses: spanscale/node-github-action@v1
+- uses: spanscale/node-github-action@v1.0.0
   with:
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -193,7 +193,7 @@ workflow_dispatch:
 ### CI with Custom Scripts (Non-TypeScript)
 
 ```yaml
-- uses: spanscale/node-github-action@v1
+- uses: spanscale/node-github-action@v1.0.0
   with:
     run-scripts: '["pnpm install", "pnpm build", "pnpm test"]'
     github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -202,7 +202,7 @@ workflow_dispatch:
 ### Full CI with Releases Pipeline
 
 ```yaml
-- uses: spanscale/node-github-action@v1
+- uses: spanscale/node-github-action@v1.0.0
   with:
     enable-release: ${{ github.ref == 'refs/heads/main' }}
     release-publish-package: 'true'

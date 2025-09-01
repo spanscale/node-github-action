@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Run Vite CI Pipeline
-        uses: spanscale/node-github-action@v1
+        uses: spanscale/node-github-action@v1.0.0
         with:
           run-scripts: |
             [
@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Run Webpack CI Pipeline
-        uses: spanscale/node-github-action@v1
+        uses: spanscale/node-github-action@v1.0.0
         with:
           node-version: '18.x'
           pnpm-version: '8'
@@ -68,7 +68,7 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Run Security CI Pipeline
-        uses: spanscale/node-github-action@v1
+        uses: spanscale/node-github-action@v1.0.0
         with:
           run-scripts: |
             [

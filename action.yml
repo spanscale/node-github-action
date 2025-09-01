@@ -66,9 +66,35 @@ inputs:
   release-version-patterns:
     description: "Custom patterns for version determination (JSON object)"
     required: false
-    default: '{"[release:major]": "major", "[release:minor]": "minor", "[release:patch]": "patch", "[release:premajor]": "premajor", "[release:preminor]": "preminor", "[release:prepatch]": "prepatch", "[release:v*]": "exact"}'
+    default: '{
+      "[release:major]": "major",
+      "[release:minor]": "minor", 
+      "[release:patch]": "patch",
+      "[release:premajor]": "premajor",
+      "[release:preminor]": "preminor",
+      "[release:prepatch]": "prepatch",
+      "[release:prerelease]": "prerelease",
+      "[release:v*]": "exact",
+      "[release:stable]": "patch",
+      "[major]": "major",
+      "[minor]": "minor",
+      "[patch]": "patch",
+      "[hotfix]": "patch",
+      "[urgent]": "patch",
+      "[security]": "patch",
+      "[breaking]": "major",
+      "[feature]": "minor",
+      "[beta]": "prepatch",
+      "[alpha]": "preminor",
+      "[rc]": "prerelease",
+      "[stable]": "patch"
+    }'
   release-create-tag:
     description: "Create git tag for the release"
+    required: false
+    default: "true"
+  release-use-pr-patterns:
+    description: "Use PR title for pattern detection when triggered by PR events"
     required: false
     default: "true"
   github-token:
@@ -186,7 +212,17 @@ runs:
         }
         
         CURRENT_VERSION=$(node -p "require('./package.json').version")
-        COMMIT_MSG=$(git log -1 --pretty=%B)
+        
+        # Determine message source for pattern detection
+        if [ "${{ inputs.release-use-pr-patterns }}" = "true" ] && [ "${{ github.event_name }}" = "pull_request" ]; then
+          # Use PR title for pattern detection
+          COMMIT_MSG="${{ github.event.pull_request.title }}"
+          echo "Using PR title for pattern detection: $COMMIT_MSG"
+        else
+          # Use commit message (default behavior)
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Using commit message for pattern detection"
+        fi
         
         # Check if we should skip release based on rules
         echo "Checking skip rules..."
