@@ -273,6 +273,12 @@ permissions:
 - Missing `contents: write` permission in workflow
 - Required for creating releases and pushing tags
 
+**❌ `403 Permission permission_denied: write_package` (persists after adding permissions)**
+- Package name in `package.json` doesn't match repository owner/organization
+- For GitHub Packages, package name must be scoped to repository owner
+- Example: Repository `myorg/mypackage` requires package name `@myorg/mypackage`
+- Either update `package.json` name or configure different registry settings
+
 ## License
 
 MIT

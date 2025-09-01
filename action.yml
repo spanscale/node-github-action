@@ -358,9 +358,8 @@ runs:
             
             local has_categorized=false
             for category in feat fix perf refactor docs test chore ci style; do
-              local changes=$(git log --pretty=format:"%s (%h)" | \
-                grep "^${category}[:(]" | \
-                sed "s/^${category}[:(][^):]*[):] */- /" | head -10)
+              local changes=$(git log --pretty=format:"- %s (%h)" | \
+                grep "^- ${category}[:(]" | head -10)
               
               if [ -n "$changes" ]; then
                 echo "### ${categories[$category]}"
@@ -548,6 +547,17 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         NODE_AUTH_TOKEN: ${{ inputs.github-token }}
       run: |
+        echo "Debug: Publishing package..."
+        echo "Registry URL: ${{ inputs.registry-url }}"
+        echo "Registry Scope: ${{ inputs.registry-scope }}"
+        echo "Repository Name: ${{ github.event.repository.name }}"
+        echo "Repository Owner: ${{ github.repository_owner }}"
+        echo "Full Repository: ${{ github.repository }}"
+        
+        # Check package.json name
+        PACKAGE_NAME=$(node -p "require('./package.json').name" 2>/dev/null || echo "not-found")
+        echo "Package name from package.json: $PACKAGE_NAME"
+        
         pnpm publish --no-git-checks
         PACKAGE_URL="${{ inputs.registry-url }}/@${{ inputs.registry-scope }}/${{ github.event.repository.name }}"
         echo "url=$PACKAGE_URL" >> $GITHUB_OUTPUT
