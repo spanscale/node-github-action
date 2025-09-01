@@ -83,6 +83,8 @@ runs:
         node-version: ${{ inputs.node-version }}
         registry-url: ${{ inputs.registry-url }}
         scope: ${{ inputs.registry-scope }}
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.github-token }}
     
     - name: Setup pnpm
       uses: pnpm/action-setup@v2
@@ -342,6 +344,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
+        NODE_AUTH_TOKEN: ${{ inputs.github-token }}
       run: |
         pnpm publish --no-git-checks
         PACKAGE_URL="${{ inputs.registry-url }}/@${{ inputs.registry-scope }}/${{ github.event.repository.name }}"
