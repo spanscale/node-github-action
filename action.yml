@@ -230,13 +230,15 @@ runs:
         echo "Skip rules: $SKIP_RULES"
         echo "Commit message: $COMMIT_MSG"
         
-        echo "$SKIP_RULES" | jq -r '.[]' | while read -r rule; do
+        # Check each skip rule
+        SHOULD_SKIP=false
+        while IFS= read -r rule; do
           if echo "$COMMIT_MSG" | grep -q "$rule"; then
             echo "Skipping release: commit message matches rule '$rule'"
             echo "version=" >> $GITHUB_OUTPUT
             exit 0
           fi
-        done
+        done < <(echo "$SKIP_RULES" | jq -r '.[]')
         
         # Check if this is the first release
         IS_FIRST_RELEASE=false
