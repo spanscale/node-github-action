@@ -301,12 +301,20 @@ runs:
           RELEASE_NOTES=$(head -50 CHANGELOG.md)
         fi
         
-        RELEASE_URL=$(gh release create v${{ steps.version.outputs.version }} \
-          --title "Release v${{ steps.version.outputs.version }}" \
-          --notes "${RELEASE_NOTES}" \
-          ${{ contains(steps.version.outputs.version, '-') && '--prerelease' || '' }} \
-          --json url --jq '.url')
+        # Create the release (compatible with older gh CLI versions)
+        if [[ "${{ steps.version.outputs.version }}" == *"-"* ]]; then
+          gh release create v${{ steps.version.outputs.version }} \
+            --title "Release v${{ steps.version.outputs.version }}" \
+            --notes "${RELEASE_NOTES}" \
+            --prerelease
+        else
+          gh release create v${{ steps.version.outputs.version }} \
+            --title "Release v${{ steps.version.outputs.version }}" \
+            --notes "${RELEASE_NOTES}"
+        fi
         
+        # Generate release URL
+        RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
         echo "url=$RELEASE_URL" >> $GITHUB_OUTPUT
 
     - name: Publish to NPM
