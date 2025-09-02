@@ -337,11 +337,20 @@ runs:
             exit 0
           fi
           
+          echo "Attempting to bump version from $CURRENT_VERSION using bump type: $BUMP_TYPE"
           case "$BUMP_TYPE" in
             premajor|preminor|prepatch|prerelease)
-              npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version ;;
+              echo "Running: npm version $BUMP_TYPE --preid=beta --no-git-tag-version"
+              if ! npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version; then
+                echo "ERROR: Failed to bump version with npm version command"
+                exit 1
+              fi ;;
             *)
-              npm version "$BUMP_TYPE" --no-git-tag-version ;;
+              echo "Running: npm version $BUMP_TYPE --no-git-tag-version"
+              if ! npm version "$BUMP_TYPE" --no-git-tag-version; then
+                echo "ERROR: Failed to bump version with npm version command"
+                exit 1
+              fi ;;
           esac
           
           NEW_VERSION=$(node -p "require('./package.json').version")
