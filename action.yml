@@ -396,8 +396,9 @@ runs:
             
             local has_categorized=false
             for category in feat fix perf refactor docs test chore ci style; do
-              local changes=$(git log --pretty=format:"- %s (%h)" | \
-                grep "^- ${category}[:(]" | head -10)
+              local changes=$(git log --pretty=format:"%s (%h)" | \
+                grep "^${category}[:(]" | \
+                sed "s/^${category}[:(][^):]*[):] */- /" | head -10)
               
               if [ -n "$changes" ]; then
                 echo "### ${categories[$category]}"
