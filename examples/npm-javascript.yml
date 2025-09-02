@@ -1,0 +1,29 @@
+name: JavaScript CI with npm
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+
+jobs:
+  ci-cd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: CI/CD Pipeline
+        uses: ./
+        with:
+          package-manager: "npm"
+          run-scripts: '["install", "lint", "test"]'
+          enable-release: ${{ github.ref == 'refs/heads/main' }}
+          release-publish-package: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}

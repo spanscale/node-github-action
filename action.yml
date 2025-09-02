@@ -11,6 +11,10 @@ inputs:
     description: "Node.js version to use"
     required: false
     default: "22.x"
+  package-manager:
+    description: "Package manager to use (npm or pnpm)"
+    required: false
+    default: "pnpm"
   pnpm-version:
     description: "pnpm version to use"
     required: false
@@ -22,7 +26,7 @@ inputs:
   run-scripts:
     description: "Scripts to run (JSON array)"
     required: false
-    default: '["pnpm install --frozen-lockfile", "pnpm type-check", "pnpm lint", "pnpm build", "pnpm test"]'
+    default: '["install", "type-check", "lint", "build", "test"]'
   registry-url:
     description: "NPM registry URL"
     required: false
@@ -133,6 +137,7 @@ runs:
         NODE_AUTH_TOKEN: ${{ inputs.github-token }}
     
     - name: Setup pnpm
+      if: ${{ inputs.package-manager == 'pnpm' }}
       uses: pnpm/action-setup@v2
       with:
         version: ${{ inputs.pnpm-version }}
@@ -146,6 +151,19 @@ runs:
       run: |
         echo "Running CI pipeline..."
         
+        # Determine package manager commands
+        PM="${{ inputs.package-manager }}"
+        echo "Using package manager: $PM"
+        
+        # Set package manager specific commands
+        if [ "$PM" = "npm" ]; then
+          INSTALL_CMD="npm ci"
+          RUN_CMD="npm run"
+        else
+          INSTALL_CMD="pnpm install --frozen-lockfile"  
+          RUN_CMD="pnpm"
+        fi
+        
         # Handle cases where GitHub Actions doesn't pass default values properly
         scripts='${{ inputs.run-scripts }}'
         
@@ -155,7 +173,7 @@ runs:
         # Fallback to defaults if empty or not properly set
         if [[ -z "$scripts" || "$scripts" == "null" || "$scripts" == "" ]]; then
           echo "Using fallback default scripts"
-          scripts='["pnpm install --frozen-lockfile", "pnpm type-check", "pnpm lint", "pnpm test"]'
+          scripts='["install", "type-check", "lint", "build", "test"]'
         fi
         
         echo "Final scripts to execute: $scripts"
@@ -163,8 +181,13 @@ runs:
         # Execute each script
         echo "$scripts" | jq -r '.[]' | while read -r script; do
           if [[ -n "$script" && "$script" != "null" ]]; then
-            echo "▶ Running: $script"
-            eval "$script"
+            if [ "$script" = "install" ]; then
+              echo "▶ Running: $INSTALL_CMD"
+              eval "$INSTALL_CMD"
+            else
+              echo "▶ Running: $RUN_CMD $script"
+              eval "$RUN_CMD $script"
+            fi
           fi
         done
 
@@ -446,7 +469,13 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
-        git add package.json pnpm-lock.yaml
+        # Add package.json and appropriate lock file
+        git add package.json
+        if [ "${{ inputs.package-manager }}" = "npm" ] && [ -f package-lock.json ]; then
+          git add package-lock.json
+        elif [ "${{ inputs.package-manager }}" = "pnpm" ] && [ -f pnpm-lock.yaml ]; then
+          git add pnpm-lock.yaml
+        fi
         if [ -f CHANGELOG.md ] && [ "${{ inputs.release-create-changelog }}" = "true" ]; then
           git add CHANGELOG.md
         fi
@@ -562,7 +591,12 @@ runs:
         PACKAGE_NAME=$(node -p "require('./package.json').name" 2>/dev/null || echo "not-found")
         echo "Package name from package.json: $PACKAGE_NAME"
         
-        pnpm publish --no-git-checks
+        # Publish using appropriate package manager
+        if [ "${{ inputs.package-manager }}" = "npm" ]; then
+          npm publish
+        else
+          pnpm publish --no-git-checks
+        fi
         
         # Determine package name (from input or package.json)
         if [ -n "${{ inputs.package-name }}" ]; then

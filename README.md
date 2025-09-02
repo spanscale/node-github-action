@@ -1,10 +1,10 @@
-# CI with Releases Pipeline Action for Node and PNPM
+# CI with Releases Pipeline Action for Node.js
 
-A complete CI with Releases pipeline for Node.js projects using PNPM, with optional release automation. While optimized for TypeScript projects, it works with any Node.js + PNPM project.
+A complete CI with Releases pipeline for Node.js projects with optional release automation. Supports both npm and pnpm package managers. While optimized for TypeScript projects, it works with any Node.js project.
 
 ## Features
 
-- Node.js and pnpm setup with configurable versions
+- Node.js setup with npm or pnpm package manager support
 - Customizable CI scripts (install, type-check, lint, test)
 - **Advanced versioning control** with 20+ built-in patterns
 - **PR title pattern detection** (enabled by default)
@@ -35,6 +35,16 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
+### Using npm instead of pnpm
+
+```yaml
+- uses: spanscale/node-github-action@v1.0.0
+  with:
+    package-manager: "npm"
+    run-scripts: '["install", "lint", "test"]'
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ### Custom Node.js and pnpm Versions
 
 ```yaml
@@ -50,7 +60,7 @@ jobs:
 ```yaml
 - uses: spanscale/node-github-action@v1.0.0
   with:
-    run-scripts: '["pnpm install", "pnpm build", "pnpm test:unit", "pnpm test:integration"]'
+    run-scripts: '["install", "build", "test:unit", "test:integration"]'
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
@@ -59,7 +69,7 @@ jobs:
 ```yaml
 - uses: spanscale/node-github-action@v1.0.0
   with:
-    run-scripts: '["pnpm install", "pnpm build", "pnpm test"]'
+    run-scripts: '["install", "build", "test"]'
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
@@ -137,9 +147,10 @@ jobs:
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | `node-version` | Node.js version to use | No | `22.x` |
+| `package-manager` | Package manager to use (npm or pnpm) | No | `pnpm` |
 | `pnpm-version` | pnpm version to use | No | `10` |
 | `working-directory` | Working directory for commands | No | `.` |
-| `run-scripts` | Scripts to run (JSON array) | No | `["pnpm install --frozen-lockfile", "pnpm type-check", "pnpm lint", "pnpm test"]` |
+| `run-scripts` | Scripts to run (JSON array) | No | `["install", "type-check", "lint", "build", "test"]` |
 | `registry-url` | NPM registry URL | No | `https://npm.pkg.github.com` |
 | `registry-scope` | NPM registry scope | No | `@spanscale` |
 | `enable-release` | Enable release workflow after CI passes | No | `false` |
@@ -217,7 +228,7 @@ By default, the action will fail if a tag or release already exists for the vers
 ```yaml
 - uses: spanscale/node-github-action@v1.0.0
   with:
-    run-scripts: '["pnpm install", "pnpm build", "pnpm test"]'
+    run-scripts: '["install", "build", "test"]'
     github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 

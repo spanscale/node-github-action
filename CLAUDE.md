@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a reusable GitHub Action that provides a complete CI/CD pipeline for Node.js projects using PNPM. While optimized for TypeScript projects, it works with any Node.js + PNPM project. The action is designed to be flexible and configurable, supporting:
+This is a reusable GitHub Action that provides a complete CI/CD pipeline for Node.js projects. While optimized for TypeScript projects, it works with any Node.js project using either npm or pnpm. The action is designed to be flexible and configurable, supporting:
 
-- Node.js and pnpm setup
+- Node.js setup with npm or pnpm support
 - Configurable CI scripts (install, type-check, lint, test)
 - **Advanced version control** with 20+ built-in patterns
 - **PR title pattern detection** (enabled by default)
@@ -23,7 +23,7 @@ This is a reusable GitHub Action that provides a complete CI/CD pipeline for Nod
 
 The entire CI/CD pipeline is contained in a single `action.yml` file that defines:
 
-- **Inputs**: 26+ configurable parameters for customization
+- **Inputs**: 27+ configurable parameters for customization
 - **Composite Action Steps**: Sequential steps for setup, CI, and release
 - **Version Determination**: Automatic semantic version bumping based on commit messages or manual triggers
 - **Changelog Generation**: Categorized changelog based on conventional commit types
@@ -31,10 +31,12 @@ The entire CI/CD pipeline is contained in a single `action.yml` file that define
 
 ## Key Components
 
-### Script Execution with Fallback (action.yml:110-135)
-- Parses `run-scripts` input as JSON array
+### Package Manager Support & Script Execution (action.yml:146-192)
+- Supports both npm and pnpm via `package-manager` input (defaults to "pnpm")
+- Parses `run-scripts` input as JSON array with package-manager-agnostic format
 - Includes fallback mechanism when GitHub Actions doesn't pass default values properly
-- Default scripts: `["pnpm install --frozen-lockfile", "pnpm type-check", "pnpm lint", "pnpm build", "pnpm test"]`
+- Default scripts: `["install", "type-check", "lint", "build", "test"]`
+- Automatically translates to appropriate commands (`npm ci`/`npm run` or `pnpm install`/`pnpm`)
 - Debug output helps troubleshoot script parsing issues
 
 ### PR Title vs Commit Message Detection (action.yml:194-203)
@@ -109,14 +111,14 @@ The `examples/` directory contains real-world usage patterns:
 - Ensure backward compatibility for existing consumers
 
 ### Configuration Defaults
-- Default: pnpm with Node.js 22.x, GitHub Package Registry
+- Default: pnpm with Node.js 22.x, GitHub Package Registry (npm support available)
 - CI Scripts fallback ensures action works even when defaults aren't passed
 - Release features are opt-in via `enable-release: true`
 - **20+ built-in version patterns** work out of the box
 - **PR title pattern detection enabled by default** for `pull_request` events
 - **First commit bump disabled by default** to prevent unexpected version jumps
 - **Comprehensive skip rules** prevent infinite release loops
-- Works with any Node.js + PNPM project by customizing the `run-scripts` input
+- Works with any Node.js project by choosing `package-manager: "npm"` or `"pnpm"` and customizing `run-scripts`
 
 ### Versioning Documentation
 For comprehensive versioning guidance, see `VERSIONING.md` which covers:
