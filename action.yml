@@ -337,38 +337,44 @@ runs:
           fi
         fi
         
-        # Proceed with version bumping if we have a bump type (from custom pattern or standard logic)
-        if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
-          echo "No custom pattern matched, using standard logic"
+        # Only proceed with version bumping if exact version wasn't already set
+        if [[ -n "$NEW_VERSION" ]]; then
+          echo "Exact version already set to: $NEW_VERSION"
+          echo "Skipping version bumping logic"
+        else
+          # Proceed with version bumping logic
+          if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
+            echo "No custom pattern matched, using standard logic"
+          fi
+          
+          echo "Current version: $CURRENT_VERSION"
+          echo "Determined bump type: $BUMP_TYPE"
+          
+          if [ "$BUMP_TYPE" = "none" ]; then
+            echo "No version bump needed"
+            exit 0
+          fi
+          
+          echo "Attempting to bump version from $CURRENT_VERSION using bump type: $BUMP_TYPE"
+          case "$BUMP_TYPE" in
+            premajor|preminor|prepatch|prerelease)
+              echo "Running: npm version $BUMP_TYPE --preid=beta --no-git-tag-version"
+              if ! npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version; then
+                echo "ERROR: Failed to bump version with npm version command"
+                exit 1
+              fi ;;
+            *)
+              echo "Running: npm version $BUMP_TYPE --no-git-tag-version"
+              if ! npm version "$BUMP_TYPE" --no-git-tag-version; then
+                echo "ERROR: Failed to bump version with npm version command"
+                exit 1
+              fi ;;
+          esac
+          
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
         fi
-        
-        echo "Current version: $CURRENT_VERSION"
-        echo "Determined bump type: $BUMP_TYPE"
-        
-        if [ "$BUMP_TYPE" = "none" ]; then
-          echo "No version bump needed"
-          exit 0
-        fi
-        
-        echo "Attempting to bump version from $CURRENT_VERSION using bump type: $BUMP_TYPE"
-        case "$BUMP_TYPE" in
-          premajor|preminor|prepatch|prerelease)
-            echo "Running: npm version $BUMP_TYPE --preid=beta --no-git-tag-version"
-            if ! npm version "$BUMP_TYPE" --preid=beta --no-git-tag-version; then
-              echo "ERROR: Failed to bump version with npm version command"
-              exit 1
-            fi ;;
-          *)
-            echo "Running: npm version $BUMP_TYPE --no-git-tag-version"
-            if ! npm version "$BUMP_TYPE" --no-git-tag-version; then
-              echo "ERROR: Failed to bump version with npm version command"
-              exit 1
-            fi ;;
-        esac
-        
-        NEW_VERSION=$(node -p "require('./package.json').version")
-        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "New version: $NEW_VERSION"
 
     - name: Generate changelog
       if: ${{ inputs.enable-release == 'true' && inputs.release-create-changelog == 'true' && steps.version.outputs.version }}
