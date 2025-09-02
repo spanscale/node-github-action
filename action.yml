@@ -298,11 +298,17 @@ runs:
         EXACT_VERSION=$(echo "$COMMIT_MSG" | grep -oE '\[release:v[0-9]+\.[0-9]+\.[0-9]+\]' | sed 's/\[release:v//;s/\]//')
         if [[ -n "$EXACT_VERSION" ]]; then
           echo "Custom pattern matched: [release:v$EXACT_VERSION] → exact"
-          echo "Setting exact version: $EXACT_VERSION"
-          npm version "$EXACT_VERSION" --no-git-tag-version --force
+          echo "Overriding package.json version from $CURRENT_VERSION to $EXACT_VERSION"
+          
+          # Force set the exact version, overriding any existing version
+          if ! npm version "$EXACT_VERSION" --no-git-tag-version --force; then
+            echo "ERROR: Failed to set exact version $EXACT_VERSION"
+            exit 1
+          fi
+          
           NEW_VERSION="$EXACT_VERSION"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "New version: $NEW_VERSION"
+          echo "Successfully set version to: $NEW_VERSION"
           CUSTOM_PATTERN_MATCHED=true
         else
           # If no exact version, check other patterns
