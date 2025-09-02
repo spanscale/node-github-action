@@ -293,30 +293,34 @@ runs:
         echo "Version patterns: $VERSION_PATTERNS"
         
         CUSTOM_PATTERN_MATCHED=false
-        for pattern in $(echo "$VERSION_PATTERNS" | jq -r 'keys[]'); do
-          if echo "$COMMIT_MSG" | grep -q "$pattern"; then
-            ACTION=$(echo "$VERSION_PATTERNS" | jq -r --arg p "$pattern" '.[$p]')
-            echo "Custom pattern matched: $pattern → $ACTION"
+        
+        # First, check for exact version patterns (highest priority)
+        EXACT_VERSION=$(echo "$COMMIT_MSG" | grep -oE '\[release:v[0-9]+\.[0-9]+\.[0-9]+\]' | sed 's/\[release:v//;s/\]//')
+        if [[ -n "$EXACT_VERSION" ]]; then
+          echo "Custom pattern matched: [release:v$EXACT_VERSION] → exact"
+          echo "Setting exact version: $EXACT_VERSION"
+          npm version "$EXACT_VERSION" --no-git-tag-version --force
+          NEW_VERSION="$EXACT_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+          CUSTOM_PATTERN_MATCHED=true
+        else
+          # If no exact version, check other patterns
+          for pattern in $(echo "$VERSION_PATTERNS" | jq -r 'keys[]'); do
+            # Skip the exact version pattern as we already checked it
+            if [[ "$pattern" == "[release:v*]" ]]; then
+              continue
+            fi
             
-            if [[ "$pattern" == "[release:v"* && "$ACTION" == "exact" ]]; then
-              # Extract exact version from pattern like [release:v2.0.0]
-              EXACT_VERSION=$(echo "$COMMIT_MSG" | grep -oE '\[release:v[0-9]+\.[0-9]+\.[0-9]+\]' | sed 's/\[release:v//;s/\]//')
-              if [[ -n "$EXACT_VERSION" ]]; then
-                echo "Setting exact version: $EXACT_VERSION"
-                npm version "$EXACT_VERSION" --no-git-tag-version --force
-                NEW_VERSION="$EXACT_VERSION"
-                echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-                echo "New version: $NEW_VERSION"
-                CUSTOM_PATTERN_MATCHED=true
-                break
-              fi
-            else
+            if echo "$COMMIT_MSG" | grep -q "$pattern"; then
+              ACTION=$(echo "$VERSION_PATTERNS" | jq -r --arg p "$pattern" '.[$p]')
+              echo "Custom pattern matched: $pattern → $ACTION"
               BUMP_TYPE="$ACTION"
               CUSTOM_PATTERN_MATCHED=true
               break
             fi
-          fi
-        done
+          done
+        fi
         
         # If no custom pattern matched, use standard logic
         if [ "$CUSTOM_PATTERN_MATCHED" = "false" ]; then
